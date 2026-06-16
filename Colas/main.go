@@ -155,6 +155,7 @@ func (l *Limitador) TopRechazos(n int) []struct {
 	}
 	return res
 }
+
 func main() {
 	if len(os.Args) != 4 {
 		fmt.Fprintf(os.Stderr, "Uso: %s <archivo_log> <M> <T_segundos>\n", os.Args[0])
