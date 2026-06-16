@@ -134,8 +134,6 @@ func BenchmarkLRU_Get(b *testing.B) {
 	}
 }
 
-// --- SOLUCIÓN INTEGRAL PARA LA MÁQUINA DEL PROFESOR ---
-
 // Test CargarSecuencia usando un archivo virtual temporal dinámico
 func TestCargarSecuencia_Real(t *testing.T) {
 	// Creamos un directorio temporal único del sistema operativo

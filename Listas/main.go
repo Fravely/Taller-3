@@ -9,7 +9,6 @@ import (
 	"strconv"
 )
 
-// ---------- LISTA DOBLEMENTE ENLAZADA + CACHE LRU ----------
 type Nodo struct {
 	Clave, Valor int
 	Prev, Next   *Nodo
@@ -80,7 +79,6 @@ func (l *LRU) Put(clave, valor int) {
 	}
 }
 
-// ---------- CARGA DEL DATASET RATINGS.CSV ----------
 type Registro struct {
 	movieID   int
 	timestamp int64
@@ -154,7 +152,6 @@ func SimularLRU(secuencia []int, capacidad int) float64 {
 	return float64(hits) / float64(len(secuencia))
 }
 
-// ---------- PROGRAMA PRINCIPAL ----------
 func main() {
 	rutaCSV := "./ratings.csv"
 	if len(os.Args) > 1 {
