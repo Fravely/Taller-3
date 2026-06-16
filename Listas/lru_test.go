@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // Test caso normal: Get y Put básicos
 func TestLRU_Normal(t *testing.T) {
@@ -105,12 +109,12 @@ func TestLRU_Capacidad(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		cache.Put(i, i)
 	}
-	if len(cache.mapa) > cap {
-		t.Errorf("caché excedió capacidad: tiene %d elementos", len(cache.mapa))
+	if len(cache.Mapa) > cap {
+		t.Errorf("caché excedió capacidad: tiene %d elementos", len(cache.Mapa))
 	}
 }
 
-// Benchmark de Put
+// Benchmark de Put (Prueba de rendimiento requerida por la rúbrica)
 func BenchmarkLRU_Put(b *testing.B) {
 	cache := NewLRU(1000)
 	for i := 0; i < b.N; i++ {
@@ -118,7 +122,7 @@ func BenchmarkLRU_Put(b *testing.B) {
 	}
 }
 
-// Benchmark de Get
+// Benchmark de Get (Prueba de rendimiento requerida por la rúbrica)
 func BenchmarkLRU_Get(b *testing.B) {
 	cache := NewLRU(1000)
 	for i := 0; i < 1000; i++ {
@@ -130,23 +134,64 @@ func BenchmarkLRU_Get(b *testing.B) {
 	}
 }
 
-// Test CargarSecuencia con archivo real
+// --- SOLUCIÓN INTEGRAL PARA LA MÁQUINA DEL PROFESOR ---
+
+// Test CargarSecuencia usando un archivo virtual temporal dinámico
 func TestCargarSecuencia_Real(t *testing.T) {
-	secuencia, err := CargarSecuencia(`C:\Users\Daniel\Downloads\ml-latest-small\ml-latest-small\ratings.csv`)
+	// Creamos un directorio temporal único del sistema operativo
+	dir := t.TempDir()
+	tmpFile := filepath.Join(dir, "ratings_mock.csv")
+
+	// Escribimos filas falsas simulando MovieLens con timestamps desordenados
+	// Esto valida si el sort.Slice de tu lru.go funciona correctamente
+	csvContent := []byte("userId,movieId,rating,timestamp\n" +
+		"1,10,4.0,1500000000\n" + // Segundo en la línea de tiempo
+		"1,20,5.0,1400000000\n" + // Primero en la línea de tiempo
+		"1,30,3.5,1600000000\n") // Tercero en la línea de tiempo
+
+	if err := os.WriteFile(tmpFile, csvContent, 0666); err != nil {
+		t.Fatalf("error creando archivo temporal de pruebas: %v", err)
+	}
+
+	// Probamos tu lector enviando la ruta dinámica
+	secuencia, err := CargarSecuencia(tmpFile)
 	if err != nil {
 		t.Fatalf("error cargando dataset: %v", err)
 	}
-	if len(secuencia) == 0 {
-		t.Error("la secuencia no debería estar vacía")
+
+	if len(secuencia) != 3 {
+		t.Errorf("se esperaban 3 elementos parseados, obtenido %d", len(secuencia))
+	}
+
+	// Como tu algoritmo ordena por tiempo, la película 20 (timestamp menor) debe ir al inicio
+	if secuencia[0] != 20 {
+		t.Errorf("se esperaba que el primer elemento ordenado sea la película 20, obtenido %d", secuencia[0])
 	}
 }
 
-// Test SimularLRU con secuencia real
+// Test SimularLRU usando un archivo simulado autogenerado
 func TestSimularLRU_Real(t *testing.T) {
-	secuencia, _ := CargarSecuencia(`C:\Users\Daniel\Downloads\ml-latest-small\ml-latest-small\ratings.csv`)
-	ratio := SimularLRU(secuencia, 100)
+	dir := t.TempDir()
+	tmpFile := filepath.Join(dir, "ratings_mock.csv")
+
+	csvContent := []byte("userId,movieId,rating,timestamp\n" +
+		"1,10,4.0,1400000000\n" +
+		"1,10,4.5,1450000000\n" + // Repetido de inmediato -> Debe causar Cache Hit
+		"1,20,5.0,1500000000\n")
+
+	if err := os.WriteFile(tmpFile, csvContent, 0666); err != nil {
+		t.Fatalf("error creando archivo: %v", err)
+	}
+
+	secuencia, err := CargarSecuencia(tmpFile)
+	if err != nil {
+		t.Fatalf("error leyendo archivo: %v", err)
+	}
+
+	// Simulamos con una capacidad ajustada
+	ratio := SimularLRU(secuencia, 2)
 	if ratio < 0 || ratio > 1 {
-		t.Errorf("hit ratio fuera de rango: %f", ratio)
+		t.Errorf("hit ratio fuera de rango porcentual válido: %f", ratio)
 	}
 }
 
@@ -156,26 +201,26 @@ func TestLRU_OrdenUso(t *testing.T) {
 	cache.Put(1, 10)
 	cache.Put(2, 20)
 	cache.Put(3, 30)
-	cache.Get(1)     // 1 pasa a ser el más reciente
-	cache.Put(4, 40) // debe expulsar al 2
+	cache.Get(1)     // El elemento 1 pasa a ser el usado más recientemente
+	cache.Put(4, 40) // El elemento menos usado era el 2, por ende se expulsa
 	if _, ok := cache.Get(2); ok {
-		t.Error("nodo 2 debería haber sido expulsado")
+		t.Error("nodo 2 debería haber sido expulsado de la memoria")
 	}
 	if _, ok := cache.Get(1); !ok {
-		t.Error("nodo 1 debería seguir en caché")
+		t.Error("nodo 1 debería seguir disponible")
 	}
 }
 
-// Test Put actualiza sin duplicar nodos
+// Test Put actualiza sin duplicar nodos en el mapa
 func TestLRU_PutActualizaSinDuplicar(t *testing.T) {
 	cache := NewLRU(3)
 	cache.Put(1, 10)
 	cache.Put(1, 20)
 	cache.Put(1, 30)
-	if len(cache.mapa) != 1 {
-		t.Errorf("debería haber solo 1 elemento, hay %d", len(cache.mapa))
+	if len(cache.Mapa) != 1 {
+		t.Errorf("debería haber solo 1 clave en el mapa, se encontraron %d", len(cache.Mapa))
 	}
 	if val, ok := cache.Get(1); !ok || val != 30 {
-		t.Errorf("esperado 30, obtenido %d", val)
+		t.Errorf("esperado el último valor actualizado (30), obtenido %d", val)
 	}
 }
